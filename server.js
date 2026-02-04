@@ -26,14 +26,22 @@ io.on("connection",(socket)=>{
     console.log("New client connected: ", socket.id);
 
     socket.on("join-user",(username)=>{
-        users[socket.id] = username;
+        users[socket.id] = {
+            username, latitude: null, longitu: null
+        }
         console.log(`${username} joined`);
+        socket.emit("all-users",users);
     });
 
     socket.on("send-location",(location)=>{
+        if(users[socket.id]){
+            users[socket.id].latitude = location.latitude;
+            users[socket.id].longitude = location.longitude;
+        }
+
         io.emit("received-location", { 
             id: socket.id,
-            username: users[socket.id],
+            username: users[socket.id]?.username,
             ...location 
         });
     });
