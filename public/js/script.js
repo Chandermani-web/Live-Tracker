@@ -1,3 +1,6 @@
+let myLocation = null;
+let routingControl = null;
+
 const socket = io();
 
 let username = localStorage.getItem("usernameforsocket");
@@ -9,7 +12,6 @@ if (!username) {
 
 socket.emit("join-user", username);
 
-
 // -------------------- MAP SETUP --------------------
 
 const map = L.map("map").setView([0, 0], 2);
@@ -19,20 +21,41 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 const markers = {};
-let isFirstLocation = true; // prevents auto jump every time
+let isFirstLocation = true;
+
+
+// -------------------- SHOW ROUTE --------------------
+
+function showRoute(destination){
+
+    if(!myLocation) return;
+
+    if(routingControl){
+        map.removeControl(routingControl);
+    }
+
+    routingControl = L.Routing.control({
+        waypoints: [
+            L.latLng(myLocation[0], myLocation[1]),
+            L.latLng(destination[0], destination[1])
+        ],
+        routeWhileDragging: false
+    }).addTo(map);
+}
 
 
 // -------------------- GEOLOCATION --------------------
 
 if (navigator.geolocation) {
 
-    // First location fetch
     navigator.geolocation.getCurrentPosition((position) => {
+
         const { latitude, longitude } = position.coords;
+
+        myLocation = [latitude, longitude];   // ✅ FIXED
 
         socket.emit("send-location", { latitude, longitude });
 
-        // Only first time center map on YOU
         if (isFirstLocation) {
             map.setView([latitude, longitude], 15);
             isFirstLocation = false;
@@ -40,24 +63,18 @@ if (navigator.geolocation) {
 
     });
 
-    // Continuous tracking
     navigator.geolocation.watchPosition(
         (position) => {
 
             const { latitude, longitude } = position.coords;
+
+            myLocation = [latitude, longitude];   // ✅ FIXED
 
             socket.emit("send-location", { latitude, longitude });
 
         },
         (error) => {
             console.error("Geolocation error:", error);
-
-            if (error.code === error.PERMISSION_DENIED) {
-                alert("Location permission denied");
-            }
-            else if (error.code === error.TIMEOUT) {
-                console.log("Location request timeout");
-            }
         },
         {
             enableHighAccuracy: false,
@@ -86,6 +103,9 @@ socket.on("all-users", (users) => {
                         permanent: true,
                         direction: "top",
                         offset: [0, -10]
+                    })
+                    .on("click", () => {
+                        showRoute([user.latitude, user.longitude]);  // ✅ FIXED
                     });
 
             }
@@ -115,6 +135,9 @@ socket.on("received-location", (location) => {
                 permanent: true,
                 direction: "top",
                 offset: [0, -10]
+            })
+            .on("click", () => {
+                showRoute([latitude, longitude]);
             });
 
     }
